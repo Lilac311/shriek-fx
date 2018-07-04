@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -13,26 +14,21 @@ namespace Shriek.Messages.RabbitMQ
     {
         public static void UseRabbitMqEventBus(this ShriekOptionBuilder builder, Action<RabbitMqOptions> optionAction)
         {
-            var option = new EventBusRabbitMqOptions();
-            optionAction(option);
-
-            AddRabbitMq(builder, option);
-
+            builder.AddRabbitMQ(optionAction);
             builder.Services.AddTransient<IEventBus, RabbitMqEventBus>();
         }
 
         public static void UseRabbitMqCommandBus(this ShriekOptionBuilder builder, Action<RabbitMqOptions> optionAction)
         {
-            var option = new CommandBusRabbitMqOptions();
-            optionAction(option);
-
-            AddRabbitMq(builder, option);
-
+            builder.AddRabbitMQ(optionAction);
             builder.Services.AddTransient<ICommandBus, RabbitMqCommandBus>();
         }
 
-        private static void AddRabbitMq(ShriekOptionBuilder builder, RabbitMqOptions option)
+        public static void AddRabbitMQ(this ShriekOptionBuilder builder, Action<RabbitMqOptions> optionAction)
         {
+            var option = new RabbitMqOptions();
+            optionAction(option);
+
             var factory = new ConnectionFactory()
             {
                 HostName = option.HostName,
@@ -64,13 +60,20 @@ namespace Shriek.Messages.RabbitMQ
             //接收到消息事件
             consumer.Received += (sender, args) =>
             {
-                var json = Encoding.UTF8.GetString(args.Body);
-                var o = JObject.Parse(json);
-                dynamic message = o.ToObject(Type.GetType(o[nameof(Message.MessageType)].Value<string>()));
+                var msgPackJson = Encoding.UTF8.GetString(args.Body);
+                var msgPack = JsonConvert.DeserializeObject<MessagePack>(msgPackJson);
+                var o = JObject.Parse(msgPack.Data);
+                var messageType = Type.GetType(msgPack.MessageType);
+                dynamic message = o.ToObject(messageType);
 
                 try
                 {
-                    option.MessagePublisher.Send(message);
+                    var subscribers = option.ServiceProvider.GetServices(typeof(IMessageSubscriber<>).MakeGenericType(messageType));
+
+                    foreach (var sub in subscribers)
+                    {
+                        ((dynamic)sub).Execute((dynamic)message);
+                    }
 
                     //确认该消息已被消费
                     channel.BasicAck(args.DeliveryTag, false);

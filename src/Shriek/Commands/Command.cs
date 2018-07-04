@@ -3,21 +3,14 @@ using System;
 
 namespace Shriek.Commands
 {
-    public class Command : Message
+    public class Command<TAggregateId> : Message, IAggregateCommand<TAggregateId>
+        where TAggregateId : IEquatable<TAggregateId>
     {
-        public int Version { get; protected set; }
-
-        public Guid AggregateId { get; protected set; }
-    }
-
-    public class Command<TAggregateId> : Command, IAggregateCommand<TAggregateId>
-    {
-        public new TAggregateId AggregateId { get; set; }
-
-        public Command(TAggregateId id, int version = 0)
+        public Command(TAggregateId aggregateId)
         {
-            AggregateId = id;
-            Version = version;
+            this.AggregateId = aggregateId;
         }
+
+        public TAggregateId AggregateId { get; protected set; }
     }
 }

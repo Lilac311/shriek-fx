@@ -1,16 +1,18 @@
 ﻿using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using Shriek.ServiceProxy.Abstractions;
 
 namespace Shriek.ServiceProxy.Http
 {
-    internal class HttpClientAdapter : IHttpClient
+    public class HttpClientAdapter : IHttpClient
     {
-        private readonly HttpClient httpClient;
+        private static HttpClient httpClient;
 
-        public HttpClientAdapter(HttpClient httpClient)
+        public HttpClientAdapter(HttpClient client)
         {
-            this.httpClient = httpClient;
+            httpClient = client;
+            httpClient.DefaultRequestHeaders.Connection.Add("keep-alive");
         }
 
         public void Dispose()

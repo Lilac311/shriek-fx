@@ -11,10 +11,16 @@ namespace Shriek.Events
         }
 
         public virtual TKey AggregateId { get; set; }
+
+        public override string EventId => AggregateId.ToString();
     }
 
-    public class Event : Message, IEvent
+    public abstract class Event : Message, IEvent
     {
-        public int Version { get; set; }
+        public abstract string EventId { get; }
+
+        public string Creator { get; set; }
+
+        public int Version { get; internal set; }
     }
 }

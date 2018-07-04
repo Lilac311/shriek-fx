@@ -10,6 +10,8 @@ namespace Shriek.Events
 
     public interface IEvent
     {
-        int Version { get; set; }
+        int Version { get; }
+
+        string Creator { get; }
     }
 }

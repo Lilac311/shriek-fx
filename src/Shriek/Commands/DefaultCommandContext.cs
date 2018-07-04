@@ -11,7 +11,7 @@ namespace Shriek.Commands
 {
     public class DefaultCommandContext : ICommandContext, ICommandContextSave
     {
-        private readonly ConcurrentQueue<AggregateRoot> aggregates;
+        private readonly ConcurrentQueue<IAggregateRoot> aggregates;
         private static readonly object Lock = new object();
         private readonly IEventBus eventBus;
         private readonly IEventStorage eventStorage;
@@ -20,7 +20,7 @@ namespace Shriek.Commands
         {
             eventStorage = container.GetService<IEventStorage>();
             eventBus = container.GetService<IEventBus>();
-            aggregates = new ConcurrentQueue<AggregateRoot>();
+            aggregates = new ConcurrentQueue<IAggregateRoot>();
         }
 
         public IDictionary<string, object> Items => new Dictionary<string, object>();
@@ -34,10 +34,10 @@ namespace Shriek.Commands
         /// <param name="initFromRepository"></param>
         /// <returns></returns>
         public TAggregateRoot GetAggregateRoot<TKey, TAggregateRoot>(TKey key, Func<TAggregateRoot> initFromRepository)
-             where TAggregateRoot : AggregateRoot, new()
+             where TAggregateRoot : IAggregateRoot<TKey>
              where TKey : IEquatable<TKey>
         {
-            var obj = GetById<TAggregateRoot, TKey>(key);
+            var obj = GetById<TKey, TAggregateRoot>(key);
             if (obj == null)
                 obj = initFromRepository();
 
@@ -47,8 +47,19 @@ namespace Shriek.Commands
             return obj;
         }
 
-        private TAggregateRoot GetById<TAggregateRoot, TKey>(TKey id)
-            where TAggregateRoot : AggregateRoot, new()
+        public TAggregateRoot GetAggregateRoot<TKey, TAggregateRoot>(TKey key)
+            where TAggregateRoot : IAggregateRoot<TKey>
+            where TKey : IEquatable<TKey>
+        {
+            var obj = GetById<TKey, TAggregateRoot>(key);
+            if (obj != null)
+                aggregates.Enqueue(obj);
+
+            return obj;
+        }
+
+        private TAggregateRoot GetById<TKey, TAggregateRoot>(TKey id)
+            where TAggregateRoot : IAggregateRoot<TKey>
             where TKey : IEquatable<TKey>
         {
             return eventStorage.Source<TAggregateRoot, TKey>(id);
@@ -66,7 +77,7 @@ namespace Shriek.Commands
         }
 
         public void SaveAggregateRoot<TAggregateRoot>(TAggregateRoot aggregate)
-            where TAggregateRoot : AggregateRoot
+            where TAggregateRoot : IAggregateRoot
         {
             if (aggregate.GetUncommittedChanges().Any())
             {
@@ -74,7 +85,7 @@ namespace Shriek.Commands
                 lock (Lock)
                 {
                     //如果不是新增事件
-                    if (aggregate.Version != -1)
+                    if (aggregate.Version != 0)
                     {
                         var lastestEvent = eventStorage.GetLastEvent(((dynamic)aggregate).AggregateId);
                         if (lastestEvent != null && lastestEvent.Version != aggregate.Version)
@@ -92,17 +103,6 @@ namespace Shriek.Commands
                 }
                 aggregate.MarkChangesAsCommitted();
             }
-        }
-
-        public TAggregateRoot GetAggregateRoot<TKey, TAggregateRoot>(TKey key)
-            where TAggregateRoot : AggregateRoot, new()
-            where TKey : IEquatable<TKey>
-        {
-            var obj = GetById<TAggregateRoot, TKey>(key);
-            if (obj != null)
-                aggregates.Enqueue(obj);
-
-            return obj;
         }
     }
 }

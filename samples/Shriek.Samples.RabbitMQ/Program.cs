@@ -142,7 +142,6 @@ namespace Shriek.Samples.RabbitMQ
             ApplyChange(new SampleEvent()
             {
                 AggregateId = this.AggregateId,
-                Version = this.Version,
                 No = command.No,
                 Delay = command.Delay
             });
@@ -151,7 +150,6 @@ namespace Shriek.Samples.RabbitMQ
         public void Handle(SampleEvent e)
         {
             this.AggregateId = e.AggregateId;
-            this.Version = e.Version;
             this.Delay = e.Delay;
             this.No = e.No;
         }

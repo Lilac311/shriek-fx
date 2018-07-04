@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using Shriek.ServiceProxy.Abstractions;
 using HttpDelete = Microsoft.AspNetCore.Mvc.HttpDeleteAttribute;
 using HttpGet = Microsoft.AspNetCore.Mvc.HttpGetAttribute;
 using HttpHead = Microsoft.AspNetCore.Mvc.HttpHeadAttribute;
@@ -31,13 +32,7 @@ namespace Shriek.ServiceProxy.Http.Server.Internal
 
             var actionParams = action.ActionMethod.GetParameters();
 
-            var method = serviceType.GetMethods().FirstOrDefault(mth =>
-            {
-                var mthParams = mth.GetParameters();
-                return action.ActionMethod.Name == mth.Name
-                       && actionParams.Length == mthParams.Length
-                       && actionParams.Any(x => mthParams.Where(o => x.Name == o.Name).Any(o => x.GetType() == o.GetType()));
-            });
+            var method = serviceType.GetMethods().FirstOrDefault(mth => action.ActionMethod.Name == mth.Name && !actionParams.Except(mth.GetParameters(), new ModelConventionHelper.ParameterInfoEqualityComparer()).Any());
 
             if (method == null) return;
 
@@ -45,7 +40,7 @@ namespace Shriek.ServiceProxy.Http.Server.Internal
             var actionAttrs = new List<object>();
 
             if (!attrs.Any(x => x is HttpMethodAttribute || x is RouteAttribute))
-                actionAttrs.Add(new HttpPost($"method/{method.Name}/{string.Join("-", method.GetParameters().Select(x => x.Name))}"));
+                actionAttrs.Add(new HttpPost(method.GetPath()));
             else
                 foreach (var att in attrs)
                 {

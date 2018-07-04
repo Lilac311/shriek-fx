@@ -3,17 +3,30 @@ using Newtonsoft.Json.Linq;
 using Shriek.Events;
 using Shriek.Storage.Mementos;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 
 namespace Shriek.Domains
 {
-    public abstract class AggregateRoot<TKey> : AggregateRoot, IAggregateRoot<TKey> where TKey : IEquatable<TKey>
+    public abstract class AggregateRoot<TKey> : IAggregateRoot<TKey>
+        where TKey : IEquatable<TKey>
     {
+        [Key]
+        public int Id { get; private set; }
+
+        public int Version { get; private set; } = -1;
+
+        private ConcurrentBag<Event> _changes;
+
+        private ConcurrentBag<Event> Changes => _changes ?? (_changes = new ConcurrentBag<Event>());
+
+        public bool CanCommit => this.Changes.Any();
+
         public TKey AggregateId { get; protected set; }
 
-        protected AggregateRoot() : this(default(TKey))
+        private AggregateRoot()
         {
         }
 
@@ -58,7 +71,7 @@ namespace Shriek.Domains
             return GetType().Name + " [Id=" + AggregateId + "]";
         }
 
-        public override void LoadsFromHistory(IEnumerable<Event> history)
+        public void LoadsFromHistory(IEnumerable<Event> history)
         {
             foreach (var e in history)
             {
@@ -76,35 +89,17 @@ namespace Shriek.Domains
         {
             dynamic d = this;
             d.Handle((dynamic)@event);
+
             if (isNew)
             {
                 this.Changes.Add(@event);
             }
         }
 
-        public override Memento GetMemento()
+        public Memento GetMemento()
         {
             return new Memento() { AggregateId = AggregateId.ToString(), Data = JsonConvert.SerializeObject(this), Version = 0 };
         }
-    }
-
-    public abstract class AggregateRoot : IOriginator, IEventProvider
-    {
-        [Key]
-        public int Id { get; protected set; }
-
-        public int Version { get; protected set; } = -1;
-
-        protected List<Event> Changes { get; }
-
-        protected AggregateRoot()
-        {
-            this.Changes = new List<Event>();
-        }
-
-        public abstract Memento GetMemento();
-
-        public abstract void LoadsFromHistory(IEnumerable<Event> history);
 
         public IEnumerable<Event> GetUncommittedChanges()
         {
@@ -113,7 +108,10 @@ namespace Shriek.Domains
 
         public void MarkChangesAsCommitted()
         {
-            Changes.Clear();
+            while (!Changes.IsEmpty)
+            {
+                Changes.TryTake(out var _);
+            }
         }
 
         public void SetMemento(Memento memento)
@@ -129,7 +127,5 @@ namespace Shriek.Domains
                 prop.SetValue(this, value);
             }
         }
-
-        public bool CanCommit => this.Changes.Any();
     }
 }

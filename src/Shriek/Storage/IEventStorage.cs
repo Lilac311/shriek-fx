@@ -7,9 +7,9 @@ namespace Shriek.Storage
 {
     public interface IEventStorage
     {
-        IEnumerable<Event> GetEvents<TKey>(TKey aggregateId, int afterVersion = 0) where TKey : IEquatable<TKey>;
+        IEnumerable<Event> GetEvents<TKey>(TKey eventId, int afterVersion = 0) where TKey : IEquatable<TKey>;
 
-        void SaveAggregateRoot<TAggregateRoot>(TAggregateRoot aggregate) where TAggregateRoot : AggregateRoot;
+        void SaveAggregateRoot<TAggregateRoot>(TAggregateRoot aggregate) where TAggregateRoot : IAggregateRoot;
 
         /// <summary>
         /// 事件溯源，获取聚合根
@@ -18,10 +18,10 @@ namespace Shriek.Storage
         ///    /// <typeparam name="TKey">聚合根Id类型</typeparam>
         /// <param name="aggregateId">唯一标识</param>
         TAggregateRoot Source<TAggregateRoot, TKey>(TKey aggregateId)
-            where TAggregateRoot : AggregateRoot, new()
+            where TAggregateRoot : IAggregateRoot<TKey>
             where TKey : IEquatable<TKey>;
 
-        IEvent<TKey> GetLastEvent<TKey>(TKey aggregateId) where TKey : IEquatable<TKey>;
+        IEvent<TKey> GetLastEvent<TKey>(TKey eventId) where TKey : IEquatable<TKey>;
 
         void Save(Event @event);
     }

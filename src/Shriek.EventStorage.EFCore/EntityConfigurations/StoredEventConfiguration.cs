@@ -14,11 +14,11 @@ namespace Shriek.EventStorage.EFCore.EntityConfigurations
             builder.Property(c => c.Timestamp)
                 .HasColumnName("CreationDate");
 
-            builder.Property(c => c.MessageType)
+            builder.Property(c => c.EventType)
                 .HasColumnName("Action")
                 .HasColumnType("varchar(100)");
 
-            builder.Property(c => c.AggregateId)
+            builder.Property(c => c.EventId)
                 .HasColumnType("char(36)");
         }
     }

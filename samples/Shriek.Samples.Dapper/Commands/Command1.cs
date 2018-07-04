@@ -49,7 +49,6 @@ namespace Shriek.Samples.Dapper.Commands
             ApplyChange(new SampleEvent()
             {
                 AggregateId = this.AggregateId,
-                Version = this.Version,
                 No = command.No,
                 Delay = command.Delay
             });
@@ -58,7 +57,6 @@ namespace Shriek.Samples.Dapper.Commands
         public void Handle(SampleEvent e)
         {
             this.AggregateId = e.AggregateId;
-            this.Version = e.Version;
             this.Delay = e.Delay;
             this.No = e.No;
         }

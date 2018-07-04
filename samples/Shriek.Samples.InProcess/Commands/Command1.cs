@@ -25,40 +25,33 @@ namespace Shriek.Samples.InProcess.Commands
     public class SampleAggregateRoot : AggregateRoot<Guid>,
         IHandle<SampleEvent>
     {
-        public int No { get; set; }
+        public int No { get; private set; }
 
-        public TimeSpan Delay { get; set; }
+        public TimeSpan Delay { get; private set; }
 
-        public SampleAggregateRoot() : base(Guid.Empty)
-        {
-        }
-
-        public SampleAggregateRoot(Guid aggregateId) : base(aggregateId)
-        {
-        }
-
-        public static SampleAggregateRoot Register(SampleCommand command)
-        {
-            var root = new SampleAggregateRoot(command.AggregateId);
-
-            return root;
-        }
-
-        public void Create(SampleCommand command)
+        public SampleAggregateRoot(Guid aggregateId, int no, TimeSpan delay) : base(aggregateId)
         {
             ApplyChange(new SampleEvent()
             {
                 AggregateId = this.AggregateId,
-                Version = this.Version,
-                No = command.No,
-                Delay = command.Delay
+                No = no,
+                Delay = delay
+            });
+        }
+
+        public void Change(Guid aggregateId, int no, TimeSpan delay)
+        {
+            ApplyChange(new SampleEvent()
+            {
+                AggregateId = this.AggregateId,
+                No = no,
+                Delay = delay
             });
         }
 
         public void Handle(SampleEvent e)
         {
             this.AggregateId = e.AggregateId;
-            this.Version = e.Version;
             this.Delay = e.Delay;
             this.No = e.No;
         }

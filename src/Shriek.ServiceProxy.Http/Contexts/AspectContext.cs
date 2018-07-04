@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Shriek.ServiceProxy.Http.Contexts
@@ -72,7 +73,7 @@ namespace Shriek.ServiceProxy.Http.Contexts
         /// <returns></returns>
         private static AspectContext GetContextNoCache(MethodInfo method)
         {
-            var routeAttributes = GetAttributesFromMethodAndInterface<RouteAttribute>(method, false) ?? new RouteAttribute[0];
+            var routeAttributes = GetAttributesFromMethodAndInterface<RouteAttribute>(method, false) ?? Array.Empty<RouteAttribute>();
 
             var hostAttribute = GetAttributeFromMethodOrInterface<HttpHostAttribute>(method, false) ?? new HttpHostAttribute("");
 
@@ -110,9 +111,7 @@ namespace Shriek.ServiceProxy.Http.Contexts
             };
 
             if (!descriptor.Attributes.Any(x => x is HttpMethodAttribute))
-            {
-                descriptor.Attributes = descriptor.Attributes.Concat(new[] { new HttpPostAttribute($"method/{method.Name}/{string.Join("-", method.GetParameters().Select(x => x.Name))}") }).ToArray();
-            }
+                descriptor.Attributes = descriptor.Attributes.Concat(new[] { new HttpPostAttribute(method.GetPath()) }).ToArray();
 
             if (descriptor.Parameters.Count(x => x.Attributes.Any(o => o.GetType() != typeof(PathQueryAttribute))) > 1)
                 throw new NotSupportedException("不支持多个非值类型作为参数，请使用实体封装。");
@@ -145,12 +144,8 @@ namespace Shriek.ServiceProxy.Http.Contexts
 
             if (!parameterDescriptor.Attributes.Any())
             {
-                if (parameterDescriptor.IsUriParameterType || (methodAttrs.Any(x => x is HttpGetAttribute) && parameterDescriptor.ParameterType.IsUriParameterTypeArray()))
+                if (methodAttrs.Any(x => x is HttpGetAttribute) || parameterDescriptor.IsUriParameterType || parameterDescriptor.ParameterType.IsUriParameterTypeArray())
                     parameterDescriptor.Attributes = new[] { new PathQueryAttribute() };
-                //else if (parameterDescriptor.ParameterType.IsUriParameterTypeArray())
-                //    parameterDescriptor.Attributes = new[] { new JsonContentAttribute() };
-                //else
-                //    parameterDescriptor.Attributes = new[] { new FormContentAttribute() };
                 else
                     parameterDescriptor.Attributes = new[] { new JsonContentAttribute() };
             }

@@ -7,6 +7,7 @@ using Shriek.Storage;
 using System;
 using System.Linq;
 using System.Reflection;
+using Shriek.EventSourcing;
 
 namespace Shriek
 {
@@ -32,11 +33,13 @@ namespace Shriek
             {
                 foreach (var itf in hdl.GetInterfaces())
                 {
-                    builder.Services.Add(new ServiceDescriptor(itf, hdl, ServiceLifetime.Scoped));
+                    builder.Services.Add(new ServiceDescriptor(itf, hdl, ServiceLifetime.Transient));
                 }
             }
 
-            builder.Services.AddScoped<IEventStorage, InMemoryEventStorage>();
+            builder.Services.AddScoped<IMementoRepository, InMemoryEventStorageRepository>();
+            builder.Services.AddScoped<IEventStorageRepository, InMemoryEventStorageRepository>();
+            builder.Services.AddScoped<IEventStorage, DefalutEventStorage>();
             builder.Services.AddScoped<IMessagePublisher, InProcessMessagePublisher>();
 
             builder.Services.AddSingleton(typeof(IMessageSubscriber<DomainNotification>), typeof(EventMessageSubscriber<DomainNotification>));
@@ -46,15 +49,19 @@ namespace Shriek
             foreach (var msg in messages)
             {
                 var type = typeof(IMessageSubscriber<>).MakeGenericType(msg);
-                if (typeof(Command).IsAssignableFrom(msg))
+                if (typeof(ICommand).IsAssignableFrom(msg))
                 {
                     var impl = typeof(CommandMessageSubscriber<>).MakeGenericType(msg);
                     builder.Services.AddSingleton(type, impl);
                 }
-                if (typeof(Event).IsAssignableFrom(msg))
+                else if (typeof(IEvent).IsAssignableFrom(msg))
                 {
                     var impl = typeof(EventMessageSubscriber<>).MakeGenericType(msg);
                     builder.Services.AddSingleton(type, impl);
+                }
+                else
+                {
+                    allTyeps.Where(x => type.IsAssignableFrom(x)).ForEach(x => builder.Services.AddSingleton(type, x));
                 }
             }
 
